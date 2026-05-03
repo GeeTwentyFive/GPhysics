@@ -135,6 +135,8 @@ GPhysics::GPhysics(unsigned int max_bodies, int tickrate) { this->_ = new GPhysi
 
 // TODO
 
+void GPhysics::Remove(GPhysics::BodyID* body_id) { this->_->physics_system.GetBodyInterface().RemoveBody(*(JPH::BodyID*)body_id); this->_->physics_system.GetBodyInterface().DestroyBody(*(JPH::BodyID*)body_id); }
+
 void GPhysics::Tick() { JPH::EPhysicsUpdateError status = this->_->physics_system.Update(this->_->time_step, 1, &this->_->temp_allocator, &this->_->job_system); if (status != JPH::EPhysicsUpdateError::None) ERROR(std::string("Jolt physics update error: ") + std::to_string((unsigned int)status)); }
 
 GPhysics::~GPhysics() { JPH::UnregisterTypes(); delete JPH::Factory::sInstance; JPH::Factory::sInstance = nullptr; }
