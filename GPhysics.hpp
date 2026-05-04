@@ -27,3 +27,9 @@ class GPhysics { private: struct _internal; struct _internal* _; public: ~GPhysi
 
         void Tick();
 };
+
+/*
+PRE-JOLT-REMOVAL TODOs:
+- EMotionQuality::LinearCast
+- Friction & bounciness (global & per-object)
+*/
