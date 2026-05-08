@@ -59,8 +59,8 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
         Box* AddBox(fpmlinalg::Vec3 size) { if (boxes.size() >= max_boxes) return nullptr;
                 Box box{};
                 box.physics_instance = this; box._id = this->_NewUID();
-                box.aabb.min = -fpmlinalg::Vec3{size.x/2, size.y/2, size.z/2};
-                box.aabb.max = fpmlinalg::Vec3{size.x/2, size.y/2, size.z/2};
+                box.aabb.min = -(size/fpm::fixed_16_16{2});
+                box.aabb.max = size/fpm::fixed_16_16{2};
                 this->boxes.push_back(box);
                 return &boxes.back();
         }
@@ -91,11 +91,7 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                         if ((b2.aabb.GetCenterPos() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
 
                         gcollision::AABB new_aabb = b.aabb;
-                        fpmlinalg::Vec3 new_aabb_size = new_aabb.max - new_aabb.min;
-                        fpmlinalg::Vec3 new_aabb_half_extent = fpmlinalg::Vec3{new_aabb_size.x/2, new_aabb_size.y/2, new_aabb_size.z/2};
-                        new_aabb.min = new_position - new_aabb_half_extent;
-                        new_aabb.max = new_position + new_aabb_half_extent;
-
+                        new_aabb.SetCenterPos(new_position);
                         if (new_aabb.Intersects(b2.aabb)) {
                                 b.in_air = false;
 
