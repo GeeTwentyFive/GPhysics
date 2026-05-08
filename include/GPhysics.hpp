@@ -73,22 +73,22 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 if (b.in_air) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
                 else b.velocity *= 1-(b.friction/tickrate);
 
-                fpmlinalg::Vec3 new_position = b.aabb.GetPosition() + b.velocity/tickrate;
+                fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
                 b.in_air = true;
                 for (size_t j = i+1; j < boxes.size(); j++) {
                         Box& b2 = boxes[j];
 
                         // center-raycast Continuous Collision Detection
-                        if ((new_position - b.aabb.GetPosition()).LengthSquared() != fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
-                                b.aabb.GetPosition(),
-                                (new_position - b.aabb.GetPosition()),
+                        if ((new_position - b.aabb.GetCenterPos()).LengthSquared() != fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
+                                b.aabb.GetCenterPos(),
+                                (new_position - b.aabb.GetCenterPos()),
                                 b2.aabb
                         ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal/tickrate); }
 
                         // if (distance between box 1 and box 2) > (box 1 size + box 2 size): skip
                         // ^ aka.: If they're too far for collisions to even be possible
-                        if ((b2.aabb.GetPosition() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
+                        if ((b2.aabb.GetCenterPos() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
 
                         gcollision::AABB new_aabb = b.aabb;
                         fpmlinalg::Vec3 new_aabb_size = new_aabb.max - new_aabb.min;
@@ -103,6 +103,6 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                         }
                 }
 
-                b.aabb.SetPosition(new_position);
+                b.aabb.SetCenterPos(new_position);
         }}
 };

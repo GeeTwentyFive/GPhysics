@@ -35,8 +35,8 @@ struct AABB {
         fpmlinalg::Vec3 max;
         fpmlinalg::Vec3 GetSize() const {return max - min;}
         fpmlinalg::Vec3 GetHalfExtent() const {fpmlinalg::Vec3 size = GetSize(); return fpmlinalg::Vec3{size.x/2, size.y/2, size.z/2};}
-        fpmlinalg::Vec3 GetPosition() const {fpmlinalg::Vec3 c2 = min + max; return fpmlinalg::Vec3{c2.x/2, c2.y/2, c2.z/2};}
-        void SetPosition(fpmlinalg::Vec3 new_pos) {min = new_pos - GetHalfExtent(); max = new_pos + GetHalfExtent();}
+        fpmlinalg::Vec3 GetCenterPos() const {fpmlinalg::Vec3 c2 = min + max; return fpmlinalg::Vec3{c2.x/2, c2.y/2, c2.z/2};}
+        void SetCenterPos(fpmlinalg::Vec3 new_pos) {min = new_pos - GetHalfExtent(); max = new_pos + GetHalfExtent();}
         fpm::fixed_16_16 GetSurfaceArea() const {fpmlinalg::Vec3 size = GetSize(); return fpm::fixed_16_16{2} * (size.x*size.y + size.y*size.z + size.z*size.x);}
         bool ContainsPoint(const fpmlinalg::Vec3& p) const {return (
                 (p.x >= min.x && p.x <= max.x) &&
@@ -53,8 +53,8 @@ struct AABB {
                 fpm::fixed_16_16 py = std::min(max.y, b.max.y) - std::max(min.y, b.min.y);
                 fpm::fixed_16_16 pz = std::min(max.z, b.max.z) - std::max(min.z, b.min.z);
 
-                fpmlinalg::Vec3 center = GetPosition();
-                fpmlinalg::Vec3 b_center = b.GetPosition();
+                fpmlinalg::Vec3 center = GetCenterPos();
+                fpmlinalg::Vec3 b_center = b.GetCenterPos();
 
                 if (px < py && px < pz) return fpmlinalg::Vec3{((center.x - b_center.x) < fpm::fixed_16_16{0}) ? -1 : 1, 0, 0};
                 if (py < pz) return fpmlinalg::Vec3{0, ((center.y - b_center.y) < fpm::fixed_16_16{0}) ? -1 : 1, 0};
