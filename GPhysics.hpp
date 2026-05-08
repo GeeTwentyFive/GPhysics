@@ -8,7 +8,10 @@
 #include <stdint.h>
 
 class GPhysics { public: ~GPhysics();
-        GPhysics(uint16_t max_boxes = 8192, uint16_t tickrate = 128);
+        uint16_t max_boxes;
+        GPhysics(uint16_t max_boxes = 8192);
+
+        fpm::fixed_16_16 tickrate = fpm::fixed_16_16{128};  // Must never be 0
 
         struct Box {
                 GPhysics* physics_instance = nullptr;
@@ -26,7 +29,7 @@ class GPhysics { public: ~GPhysics();
                         this->aabb.min = new_pos - half_extent;
                         this->aabb.max = new_pos + half_extent;
                 };
-                void ApplyForce(fpmlinalg::Vec3 f);
+                void ApplyForce(fpmlinalg::Vec3 f) { this->velocity += ((f / physics_instance->tickrate) / (1 + (velocity.Length() / physics_instance->tickrate))); };
                 void Remove();
         };
         Box* AddBox(fpmlinalg::Vec3 size);
