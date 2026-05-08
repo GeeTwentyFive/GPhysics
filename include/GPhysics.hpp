@@ -71,5 +71,7 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 return &boxes.back();
         }
 
-        void Tick(); // TODO
+        void Tick() {
+                // TODO
+        }
 };
