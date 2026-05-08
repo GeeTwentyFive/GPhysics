@@ -1,19 +1,32 @@
-// #pragma once
+#pragma once
 
-// class GPhysics { private: struct _internal; struct _internal* _; public: ~GPhysics();
-//         GPhysics(unsigned int max_bodies = 65536, int tickrate = 128);
+#include <fpm/fixed.hpp>
+#include <fpm/math.hpp>
+#include <fpmlinalg.hpp>
+#include <GCollision.hpp>
 
-//         int AddBody(float size_x, float size_y, float size_z, bool static);
+#include <stdint.h>
 
-//         std::tuple<float, float, float> GetPosition(int body_id);
-//         void SetPosition(int body_id, float x, float y, float z);
+class GPhysics { public: ~GPhysics();
+        GPhysics(uint32_t max_bodies = 65536, uint16_t tickrate = 128);
 
-//         void ApplyForce(int body_id, float x, float y, float z);
-//         void ApplyImpulse(int body_id, float x, float y, float z);
+        struct Box {
+                GPhysics* physics_instance;
+                uint64_t id;
+                bool dynamic;
+                bool lock_x, lock_y, lock_z;
+                gcollision::AABB aabb;
+                fpmlinalg::Vec3 velocity;
+                fpm::fixed_16_16 gravity;
+                fpm::fixed_16_16 friction;
+                fpm::fixed_16_16 bounciness;
+                fpmlinalg::Vec3 GetPosition() const;
+                void SetPosition(fpmlinalg::Vec3 new_pos);
+                void ApplyForce(fpmlinalg::Vec3 f);
+                void ApplyImpulse(fpmlinalg::Vec3 i);
+                void Remove();
+        };
+        Box* AddBox(fpmlinalg::Vec3 size, bool dynamic, bool lock_x = false, bool lock_y = false, bool lock_z = false);
 
-//         void LockXTranslation(int body_id); void LockYTranslation(int body_id); void LockZTranslation(int body_id);
-
-//         void Remove(int body_id);
-
-//         void Tick();
-// };
+        void Tick();
+};
