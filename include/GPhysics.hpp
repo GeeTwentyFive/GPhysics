@@ -76,11 +76,11 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
                 b.in_air = true;
-                for (size_t j = i+1; j < boxes.size(); j++) {
+                for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
                         Box& b2 = boxes[j];
 
                         // center-raycast Continuous Collision Detection
-                        if ((new_position - b.aabb.GetCenterPos()).LengthSquared() != fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
+                        if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > epsilon*epsilon) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
                                 b.aabb.GetCenterPos(),
                                 (new_position - b.aabb.GetCenterPos()),
                                 b2.aabb
@@ -90,13 +90,11 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                         // ^ aka.: If they're too far for collisions to even be possible
                         if ((b2.aabb.GetCenterPos() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
 
-                        gcollision::AABB new_aabb = b.aabb;
-                        new_aabb.SetCenterPos(new_position);
-                        if (new_aabb.Intersects(b2.aabb)) {
+                        if (b.aabb.Intersects(b2.aabb)) {
                                 b.in_air = false;
 
-                                fpmlinalg::Vec3 collision_normal = new_aabb.GetCollisionNormal(b2.aabb);
-                                fpm::fixed_16_16 collision_depth = new_aabb.GetPenetrationDepth(b2.aabb);
+                                fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
+                                fpm::fixed_16_16 collision_depth = b.aabb.GetPenetrationDepth(b2.aabb);
 
                                 fpmlinalg::Vec3 pos_correction = collision_normal;
                                 if (b2.dynamic) pos_correction *= (collision_depth+epsilon)/2;
