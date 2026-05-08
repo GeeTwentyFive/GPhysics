@@ -80,20 +80,29 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 else b.velocity *= 1-(b.friction/tickrate);
 
                 fpmlinalg::Vec3 new_position = b.GetPosition() + b.velocity/tickrate;
+                gcollision::AABB new_aabb = b.aabb;
+                fpmlinalg::Vec3 new_aabb_size = new_aabb.max - new_aabb.min;
+                fpmlinalg::Vec3 new_aabb_half_extent = fpmlinalg::Vec3{new_aabb_size.x/2, new_aabb_size.y/2, new_aabb_size.z/2};
+                new_aabb.min = new_position - new_aabb_half_extent;
+                new_aabb.max = new_position + new_aabb_half_extent;
 
                 b.in_air = true;
                 for (size_t j = i+1; j < boxes.size(); j++) {
                         Box& b2 = boxes[j];
 
-                        // TODO: CCD
+                        if ((new_position - b.GetPosition()).LengthSquared() != fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
+                                b.GetPosition(),
+                                (new_position - b.GetPosition()),
+                                b2.aabb
+                        ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal/tickrate); }
 
-                        // TODO: collision check
+                        if (gcollision::IntersectAABBs(new_aabb, b2.aabb)) {
+                                b.in_air = false;
 
-                        // TODO: `b.in_air = false` if colliding
-
-                        // TODO: collision resolution if colliding
+                                // TODO: Collision resolution
+                        }
                 }
 
-                b.SetPosition(new_position);
+                b.aabb = new_aabb;
         }}
 };
