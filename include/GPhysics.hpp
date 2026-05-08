@@ -32,11 +32,12 @@ DEALINGS IN THE SOFTWARE.
 #include <fpmlinalg.hpp>
 #include <GCollision.hpp>
 
+#include <memory>
 #include <vector>
 #include <stdint.h>
 
 class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline uint64_t _NewUID() {return _uid++;}
-        std::vector<GPhysics::Box> boxes;
+        std::vector<std::unique_ptr<GPhysics::Box>> boxes;
         fpm::fixed_16_16 tickrate = fpm::fixed_16_16{128};  // Must never be 0
 
         uint16_t max_boxes;
@@ -54,19 +55,20 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 fpm::fixed_16_16 friction = fpm::fixed_16_16{1};
                 fpm::fixed_16_16 bounciness = fpm::fixed_16_16{1}/fpm::fixed_16_16{8};
                 void ApplyForce(fpmlinalg::Vec3 f) { this->velocity += ((f / physics_instance->tickrate) / (1 + (velocity.Length() / physics_instance->tickrate))); };
-                void Remove() { for (auto it = this->physics_instance->boxes.begin(); it != this->physics_instance->boxes.end(); it++) { if (it->_id == this->_id) {this->physics_instance->boxes.erase(it); return;} }; }
+                void Remove() { for (auto it = this->physics_instance->boxes.begin(); it != this->physics_instance->boxes.end(); it++) { if (it->get()->_id == this->_id) {this->physics_instance->boxes.erase(it); return;} }; }
         };
         Box* AddBox(fpmlinalg::Vec3 size) { if (boxes.size() >= max_boxes) return nullptr;
-                Box box{};
-                box.physics_instance = this; box._id = this->_NewUID();
-                box.aabb.min = -(size/fpm::fixed_16_16{2});
-                box.aabb.max = size/fpm::fixed_16_16{2};
-                this->boxes.push_back(box);
-                return &boxes.back();
+                auto box = std::make_unique<Box>();
+                box->physics_instance = this; box->_id = this->_NewUID();
+                box->aabb.min = -(size/fpm::fixed_16_16{2});
+                box->aabb.max = size/fpm::fixed_16_16{2};
+                Box* ptr = box.get();
+                this->boxes.push_back(std::move(box));
+                return ptr;
         }
 
         void Tick() { for (size_t i = 0; i < boxes.size(); i++) {
-                Box& b = boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;
+                Box& b = *boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;
 
                 if (!b.dynamic) continue;
 
@@ -77,7 +79,7 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
 
                 b.in_air = true;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
-                        Box& b2 = boxes[j];
+                        Box& b2 = *boxes[j];
 
                         // center-raycast Continuous Collision Detection
                         if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
