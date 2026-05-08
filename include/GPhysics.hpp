@@ -66,7 +66,7 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
         }
 
         void Tick() { for (size_t i = 0; i < boxes.size(); i++) {
-                Box& b = boxes[i];
+                Box& b = boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;
 
                 if (!b.dynamic) continue;
 
@@ -84,7 +84,7 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                                 b.aabb.GetCenterPos(),
                                 (new_position - b.aabb.GetCenterPos()),
                                 b2.aabb
-                        ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal/tickrate); }
+                        ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal*epsilon); }
 
                         // if (distance between box 1 and box 2) > (box 1 size + box 2 size): skip
                         // ^ aka.: If they're too far for collisions to even be possible
@@ -95,7 +95,13 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                         if (new_aabb.Intersects(b2.aabb)) {
                                 b.in_air = false;
 
-                                fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
+                                fpmlinalg::Vec3 collision_normal = new_aabb.GetCollisionNormal(b2.aabb);
+                                fpm::fixed_16_16 collision_depth = new_aabb.GetPenetrationDepth(b2.aabb);
+
+                                fpmlinalg::Vec3 pos_correction = collision_normal;
+                                if (b2.dynamic) pos_correction *= (collision_depth+epsilon)/2;
+                                else pos_correction *= collision_depth+epsilon;
+                                new_position += pos_correction;
 
                                 b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;
                         }

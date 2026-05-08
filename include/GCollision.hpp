@@ -48,7 +48,13 @@ struct AABB {
                 (min.y <= b.max.y && max.y >= b.min.y) &&
                 (min.z <= b.max.z && max.z >= b.min.z)
         );}
-        fpmlinalg::Vec3 GetCollisionNormal(const AABB& b) const {
+        fpm::fixed_16_16 GetPenetrationDepth(const AABB& b) const { // Only valid if Intersects(b) == true
+                fpm::fixed_16_16 px = std::min(max.x, b.max.x) - std::max(min.x, b.min.x);
+                fpm::fixed_16_16 py = std::min(max.y, b.max.y) - std::max(min.y, b.min.y);
+                fpm::fixed_16_16 pz = std::min(max.z, b.max.z) - std::max(min.z, b.min.z);
+                return std::min(std::min(px, py), pz);
+        }
+        fpmlinalg::Vec3 GetCollisionNormal(const AABB& b) const { // Only valid if Intersects(b) == true
                 fpm::fixed_16_16 px = std::min(max.x, b.max.x) - std::max(min.x, b.min.x);
                 fpm::fixed_16_16 py = std::min(max.y, b.max.y) - std::max(min.y, b.min.y);
                 fpm::fixed_16_16 pz = std::min(max.z, b.max.z) - std::max(min.z, b.min.z);
