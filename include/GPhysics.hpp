@@ -50,8 +50,8 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 bool in_air = true;
                 gcollision::AABB aabb = gcollision::AABB{fpmlinalg::Vec3{0, 0, 0}, fpmlinalg::Vec3{0, 0, 0}};
                 fpmlinalg::Vec3 velocity = fpmlinalg::Vec3{0, 0, 0};
-                fpm::fixed_16_16 gravity = fpm::fixed_16_16::from_custom_fraction<100>(9, 81);
-                fpm::fixed_16_16 friction = fpm::fixed_16_16{1}/fpm::fixed_16_16{2};
+                fpm::fixed_16_16 gravity = fpm::fixed_16_16::from_custom_fraction<100>(-9, 81);
+                fpm::fixed_16_16 friction = fpm::fixed_16_16{1};
                 fpm::fixed_16_16 bounciness = fpm::fixed_16_16{1}/fpm::fixed_16_16{8};
                 fpmlinalg::Vec3 GetPosition() const {fpmlinalg::Vec3 mm = aabb.min + aabb.max; return fpmlinalg::Vec3{mm.x/2, mm.y/2, mm.z/2};};
                 void SetPosition(fpmlinalg::Vec3 new_pos) { fpmlinalg::Vec3 size = aabb.max - aabb.min;
@@ -71,7 +71,29 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 return &boxes.back();
         }
 
-        void Tick() {
-                // TODO
-        }
+        void Tick() { for (size_t i = 0; i < boxes.size(); i++) {
+                Box& b = boxes[i];
+
+                if (!b.dynamic) continue;
+
+                if (b.in_air) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
+                else b.velocity *= 1-(b.friction/tickrate);
+
+                fpmlinalg::Vec3 new_position = b.GetPosition() + b.velocity/tickrate;
+
+                b.in_air = true;
+                for (size_t j = i+1; j < boxes.size(); j++) {
+                        Box& b2 = boxes[j];
+
+                        // TODO: CCD
+
+                        // TODO: collision check
+
+                        // TODO: `b.in_air = false` if colliding
+
+                        // TODO: collision resolution if colliding
+                }
+
+                b.SetPosition(new_position);
+        }}
 };
