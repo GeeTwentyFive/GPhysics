@@ -80,7 +80,7 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                         Box& b2 = boxes[j];
 
                         // center-raycast Continuous Collision Detection
-                        if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > epsilon*epsilon) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
+                        if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
                                 b.aabb.GetCenterPos(),
                                 (new_position - b.aabb.GetCenterPos()),
                                 b2.aabb
