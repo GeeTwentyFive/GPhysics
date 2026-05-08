@@ -95,7 +95,9 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                         if (new_aabb.Intersects(b2.aabb)) {
                                 b.in_air = false;
 
-                                // TODO: Collision resolution
+                                fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
+
+                                b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;
                         }
                 }
 
