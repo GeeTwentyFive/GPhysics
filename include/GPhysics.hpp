@@ -43,22 +43,16 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
         GPhysics(uint16_t max_boxes = 8192) : max_boxes(max_boxes) { boxes.reserve(max_boxes); };
 
         struct Box {
+                gcollision::AABB aabb = gcollision::AABB{fpmlinalg::Vec3{0, 0, 0}, fpmlinalg::Vec3{0, 0, 0}};
                 void* user_data;
                 GPhysics* physics_instance = nullptr; uint64_t _id;
                 bool dynamic = false;
                 bool lock_x = false, lock_y = false, lock_z = false;
                 bool in_air = true;
-                gcollision::AABB aabb = gcollision::AABB{fpmlinalg::Vec3{0, 0, 0}, fpmlinalg::Vec3{0, 0, 0}};
                 fpmlinalg::Vec3 velocity = fpmlinalg::Vec3{0, 0, 0};
                 fpm::fixed_16_16 gravity = fpm::fixed_16_16::from_custom_fraction<100>(-9, 81);
                 fpm::fixed_16_16 friction = fpm::fixed_16_16{1};
                 fpm::fixed_16_16 bounciness = fpm::fixed_16_16{1}/fpm::fixed_16_16{8};
-                fpmlinalg::Vec3 GetPosition() const {fpmlinalg::Vec3 mm = aabb.min + aabb.max; return fpmlinalg::Vec3{mm.x/2, mm.y/2, mm.z/2};};
-                void SetPosition(fpmlinalg::Vec3 new_pos) { fpmlinalg::Vec3 size = aabb.max - aabb.min;
-                        fpmlinalg::Vec3 half_extent = fpmlinalg::Vec3{size.x/2, size.y/2, size.z/2};
-                        this->aabb.min = new_pos - half_extent;
-                        this->aabb.max = new_pos + half_extent;
-                };
                 void ApplyForce(fpmlinalg::Vec3 f) { this->velocity += ((f / physics_instance->tickrate) / (1 + (velocity.Length() / physics_instance->tickrate))); };
                 void Remove() { for (auto it = this->physics_instance->boxes.begin(); it != this->physics_instance->boxes.end(); it++) { if (it->_id == this->_id) {this->physics_instance->boxes.erase(it); return;} }; }
         };
@@ -79,22 +73,22 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 if (b.in_air) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
                 else b.velocity *= 1-(b.friction/tickrate);
 
-                fpmlinalg::Vec3 new_position = b.GetPosition() + b.velocity/tickrate;
+                fpmlinalg::Vec3 new_position = b.aabb.GetPosition() + b.velocity/tickrate;
 
                 b.in_air = true;
                 for (size_t j = i+1; j < boxes.size(); j++) {
                         Box& b2 = boxes[j];
 
                         // center-raycast Continuous Collision Detection
-                        if ((new_position - b.GetPosition()).LengthSquared() != fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
-                                b.GetPosition(),
-                                (new_position - b.GetPosition()),
+                        if ((new_position - b.aabb.GetPosition()).LengthSquared() != fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
+                                b.aabb.GetPosition(),
+                                (new_position - b.aabb.GetPosition()),
                                 b2.aabb
                         ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal/tickrate); }
 
                         // if (distance between box 1 and box 2) > (box 1 size + box 2 size): skip
                         // ^ aka.: If they're too far for collisions to even be possible
-                        if ((b2.GetPosition() - new_position).LengthSquared() > ((b.aabb.max - b.aabb.min) + (b2.aabb.max - b2.aabb.min)).LengthSquared()) continue;
+                        if ((b2.aabb.GetPosition() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
 
                         gcollision::AABB new_aabb = b.aabb;
                         fpmlinalg::Vec3 new_aabb_size = new_aabb.max - new_aabb.min;
@@ -102,13 +96,13 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                         new_aabb.min = new_position - new_aabb_half_extent;
                         new_aabb.max = new_position + new_aabb_half_extent;
 
-                        if (gcollision::IntersectAABBs(new_aabb, b2.aabb)) {
+                        if (new_aabb.Intersects(b2.aabb)) {
                                 b.in_air = false;
 
                                 // TODO: Collision resolution
                         }
                 }
 
-                b.SetPosition(new_position);
+                b.aabb.SetPosition(new_position);
         }}
 };

@@ -30,22 +30,44 @@ DEALINGS IN THE SOFTWARE.
 #include <fpmlinalg.hpp>
 
 namespace gcollision {
-typedef struct {
+struct AABB {
         fpmlinalg::Vec3 min;
         fpmlinalg::Vec3 max;
-} AABB;
-bool IntersectAABBs(const AABB& a, const AABB& b) {return (
-        (a.min.x <= b.max.x && a.max.x >= b.min.x) &&
-        (a.min.y <= b.max.y && a.max.y >= b.min.y) &&
-        (a.min.z <= b.max.z && a.max.z >= b.min.z)
-);}
+        fpmlinalg::Vec3 GetSize() const {return max - min;}
+        fpmlinalg::Vec3 GetHalfExtent() const {fpmlinalg::Vec3 size = GetSize(); return fpmlinalg::Vec3{size.x/2, size.y/2, size.z/2};}
+        fpmlinalg::Vec3 GetPosition() const {fpmlinalg::Vec3 c2 = min + max; return fpmlinalg::Vec3{c2.x/2, c2.y/2, c2.z/2};}
+        void SetPosition(fpmlinalg::Vec3 new_pos) {min = new_pos - GetHalfExtent(); max = new_pos + GetHalfExtent();}
+        fpm::fixed_16_16 GetSurfaceArea() const {fpmlinalg::Vec3 size = GetSize(); return fpm::fixed_16_16{2} * (size.x*size.y + size.y*size.z + size.z*size.x);}
+        bool ContainsPoint(const fpmlinalg::Vec3& p) const {return (
+                (p.x >= min.x && p.x <= max.x) &&
+                (p.y >= min.y && p.y <= max.y) &&
+                (p.z >= min.z && p.z <= max.z)
+        );}
+        bool Intersects(const AABB& b) const {return (
+                (min.x <= b.max.x && max.x >= b.min.x) &&
+                (min.y <= b.max.y && max.y >= b.min.y) &&
+                (min.z <= b.max.z && max.z >= b.min.z)
+        );}
+        fpmlinalg::Vec3 GetCollisionNormal(const AABB& b) const {
+                fpm::fixed_16_16 px = std::min(max.x, b.max.x) - std::max(min.x, b.min.x);
+                fpm::fixed_16_16 py = std::min(max.y, b.max.y) - std::max(min.y, b.min.y);
+                fpm::fixed_16_16 pz = std::min(max.z, b.max.z) - std::max(min.z, b.min.z);
 
-typedef struct {
+                fpmlinalg::Vec3 center = GetPosition();
+                fpmlinalg::Vec3 b_center = b.GetPosition();
+
+                if (px < py && px < pz) return fpmlinalg::Vec3{((center.x - b_center.x) < fpm::fixed_16_16{0}) ? -1 : 1, 0, 0};
+                if (py < pz) return fpmlinalg::Vec3{0, ((center.y - b_center.y) < fpm::fixed_16_16{0}) ? -1 : 1, 0};
+                return fpmlinalg::Vec3{0, 0, ((center.z - b_center.z) < fpm::fixed_16_16{0}) ? -1 : 1};
+        }
+};
+
+struct RayHitInfo {
         bool hit = false;
         fpm::fixed_16_16 distance = fpm::fixed_16_16{0};
         fpmlinalg::Vec3 point = fpmlinalg::Vec3{0, 0, 0};
         fpmlinalg::Vec3 normal = fpmlinalg::Vec3{0, 0, 0};
-} RayHitInfo;
+};
 RayHitInfo IntersectRayAABB(
         const fpmlinalg::Vec3& ray_origin,
         fpmlinalg::Vec3 ray_direction,
@@ -92,10 +114,8 @@ RayHitInfo IntersectRayAABB(
                 t_max_z = (target.max.z - ray_origin.z) / ray_direction.z;
         }
 
-        static auto MAX = [](fpm::fixed_16_16 a, fpm::fixed_16_16 b) { return (a > b) ? a : b; };
-        static auto MIN = [](fpm::fixed_16_16 a, fpm::fixed_16_16 b) { return (a < b) ? a : b; };
-        fpm::fixed_16_16 t_min = MAX( MAX(MIN(t_min_x, t_max_x), MIN(t_min_y, t_max_y)),  MIN(t_min_z, t_max_z) );
-        fpm::fixed_16_16 t_max = MIN( MIN(MAX(t_min_x, t_max_x), MAX(t_min_y, t_max_y)),  MAX(t_min_z, t_max_z) );
+        fpm::fixed_16_16 t_min = std::max( std::max(std::min(t_min_x, t_max_x), std::min(t_min_y, t_max_y)),  std::min(t_min_z, t_max_z) );
+        fpm::fixed_16_16 t_max = std::min( std::min(std::max(t_min_x, t_max_x), std::max(t_min_y, t_max_y)),  std::max(t_min_z, t_max_z) );
 
         if (
                 (t_max < fpm::fixed_16_16{0}) ||  // AABB behind ray
