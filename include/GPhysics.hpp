@@ -36,7 +36,7 @@ DEALINGS IN THE SOFTWARE.
 #include <vector>
 #include <stdint.h>
 
-class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline uint64_t _NewUID() {return _uid++;}
+class GPhysics { public: struct Box;
         std::vector<std::unique_ptr<GPhysics::Box>> boxes;
         fpm::fixed_16_16 tickrate = fpm::fixed_16_16{128};  // Must never be 0
 
@@ -46,7 +46,7 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
         struct Box {
                 gcollision::AABB aabb = gcollision::AABB{fpmlinalg::Vec3{0, 0, 0}, fpmlinalg::Vec3{0, 0, 0}};
                 void* user_data;
-                GPhysics* physics_instance = nullptr; uint64_t _id;
+                GPhysics* physics_instance = nullptr;
                 bool dynamic = false;
                 bool lock_x = false, lock_y = false, lock_z = false;
                 bool in_air = true;
@@ -55,11 +55,11 @@ class GPhysics { public: struct Box; private: uint64_t _uid = 0; public: inline 
                 fpm::fixed_16_16 friction = fpm::fixed_16_16{1};
                 fpm::fixed_16_16 bounciness = fpm::fixed_16_16{1}/fpm::fixed_16_16{8};
                 void ApplyForce(fpmlinalg::Vec3 f) { this->velocity += ((f / physics_instance->tickrate) / (1 + (velocity.Length() / physics_instance->tickrate))); };
-                void Remove() { for (auto it = this->physics_instance->boxes.begin(); it != this->physics_instance->boxes.end(); it++) { if (it->get()->_id == this->_id) {this->physics_instance->boxes.erase(it); return;} }; }
+                void Remove() { for (auto it = this->physics_instance->boxes.begin(); it != this->physics_instance->boxes.end(); it++) { if (it->get() == this) {this->physics_instance->boxes.erase(it); return;} }; }
         };
         Box* AddBox(fpmlinalg::Vec3 size) { if (boxes.size() >= max_boxes) return nullptr;
                 auto box = std::make_unique<Box>();
-                box->physics_instance = this; box->_id = this->_NewUID();
+                box->physics_instance = this;
                 box->aabb.min = -(size/fpm::fixed_16_16{2});
                 box->aabb.max = size/fpm::fixed_16_16{2};
                 Box* ptr = box.get();
