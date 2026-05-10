@@ -70,7 +70,7 @@ class GPhysics { public: struct Box;
         Box* CastRay(
                 const fpmlinalg::Vec3& ray_origin,
                 const fpmlinalg::Vec3& ray_direction,
-                gcollision::RayHitInfo* OUT_hit_info
+                gcollision::RayHitExtraInfo* OUT_extra_hit_info = nullptr  // optional extra hit info
         ) {
                 // TODO
         }

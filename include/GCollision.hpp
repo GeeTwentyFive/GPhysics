@@ -29,6 +29,8 @@ DEALINGS IN THE SOFTWARE.
 
 #include <fpmlinalg.hpp>
 
+#include <limits>
+
 namespace gcollision {
 struct AABB {
         fpmlinalg::Vec3 min;
@@ -68,35 +70,28 @@ struct AABB {
         }
 };
 
-struct RayHitInfo {
-        bool hit = false;
+struct RayHitExtraInfo {
         fpm::fixed_16_16 distance = fpm::fixed_16_16{0};
         fpmlinalg::Vec3 point = fpmlinalg::Vec3{0, 0, 0};
         fpmlinalg::Vec3 normal = fpmlinalg::Vec3{0, 0, 0};
 };
-RayHitInfo IntersectRayAABB(
+bool IntersectRayAABB(  // returns `true` if ray intersects AABB
         const fpmlinalg::Vec3& ray_origin,
         const fpmlinalg::Vec3& ray_direction,
-        const AABB& target
+        const AABB& target,
+        gcollision::RayHitExtraInfo* OUT_extra_hit_info = nullptr  // optional extra hit info
 ) {
-        RayHitInfo hit_info{};
-
-        if (ray_direction.x == fpm::fixed_16_16{0} && (ray_origin.x < target.min.x || ray_origin.x > target.max.x)) { hit_info.hit = false; return hit_info; }
-        if (ray_direction.y == fpm::fixed_16_16{0} && (ray_origin.y < target.min.y || ray_origin.y > target.max.y)) { hit_info.hit = false; return hit_info; }
-        if (ray_direction.z == fpm::fixed_16_16{0} && (ray_origin.z < target.min.z || ray_origin.z > target.max.z)) { hit_info.hit = false; return hit_info; }
-
-        bool inside_box = (
-                (ray_origin.x > target.min.x && ray_origin.x < target.max.x) &&
-                (ray_origin.y > target.min.y && ray_origin.y < target.max.y) &&
-                (ray_origin.z > target.min.z && ray_origin.z < target.max.z)
-        );
-
-        //if (inside_box) ray_direction = -ray_direction;  // (apparently not needed...?)
+        if (ray_direction.x == fpm::fixed_16_16{0} && (ray_origin.x < target.min.x || ray_origin.x > target.max.x)) { return false; }
+        if (ray_direction.y == fpm::fixed_16_16{0} && (ray_origin.y < target.min.y || ray_origin.y > target.max.y)) { return false; }
+        if (ray_direction.z == fpm::fixed_16_16{0} && (ray_origin.z < target.min.z || ray_origin.z > target.max.z)) { return false; }
 
         fpm::fixed_16_16 t_min_x, t_max_x;
         if (ray_direction.x == fpm::fixed_16_16{0}) {
-                t_min_x = fpm::fixed_16_16{-32768};
-                t_max_x = fpm::fixed_16_16{32767};
+                t_min_x = std::numeric_limits<fpm::fixed_16_16>::lowest();
+                t_max_x = std::numeric_limits<fpm::fixed_16_16>::max();
+        } else if (ray_direction.x < fpm::fixed_16_16{0}) {
+                t_min_x = (target.max.x - ray_origin.x) / ray_direction.x;
+                t_max_x = (target.min.x - ray_origin.x) / ray_direction.x;
         } else {
                 t_min_x = (target.min.x - ray_origin.x) / ray_direction.x;
                 t_max_x = (target.max.x - ray_origin.x) / ray_direction.x;
@@ -104,8 +99,11 @@ RayHitInfo IntersectRayAABB(
 
         fpm::fixed_16_16 t_min_y, t_max_y;
         if (ray_direction.y == fpm::fixed_16_16{0}) {
-                t_min_y = fpm::fixed_16_16{-32768};
-                t_max_y = fpm::fixed_16_16{32767};
+                t_min_y = std::numeric_limits<fpm::fixed_16_16>::lowest();
+                t_max_y = std::numeric_limits<fpm::fixed_16_16>::max();
+        } else if (ray_direction.y < fpm::fixed_16_16{0}) {
+                t_min_y = (target.max.y - ray_origin.y) / ray_direction.y;
+                t_max_y = (target.min.y - ray_origin.y) / ray_direction.y;
         } else {
                 t_min_y = (target.min.y - ray_origin.y) / ray_direction.y;
                 t_max_y = (target.max.y - ray_origin.y) / ray_direction.y;
@@ -113,34 +111,41 @@ RayHitInfo IntersectRayAABB(
 
         fpm::fixed_16_16 t_min_z, t_max_z;
         if (ray_direction.z == fpm::fixed_16_16{0}) {
-                t_min_z = fpm::fixed_16_16{-32768};
-                t_max_z = fpm::fixed_16_16{32767};
+                t_min_z = std::numeric_limits<fpm::fixed_16_16>::lowest();
+                t_max_z = std::numeric_limits<fpm::fixed_16_16>::max();
+        } else if (ray_direction.z < fpm::fixed_16_16{0}) {
+                t_min_z = (target.max.z - ray_origin.z) / ray_direction.z;
+                t_max_z = (target.min.z - ray_origin.z) / ray_direction.z;
         } else {
                 t_min_z = (target.min.z - ray_origin.z) / ray_direction.z;
                 t_max_z = (target.max.z - ray_origin.z) / ray_direction.z;
         }
 
-        fpm::fixed_16_16 t_min = std::max( std::max(std::min(t_min_x, t_max_x), std::min(t_min_y, t_max_y)),  std::min(t_min_z, t_max_z) );
-        fpm::fixed_16_16 t_max = std::min( std::min(std::max(t_min_x, t_max_x), std::max(t_min_y, t_max_y)),  std::max(t_min_z, t_max_z) );
+        fpm::fixed_16_16 t_min = std::max( std::max(t_min_x, t_min_y), t_min_z );
+        fpm::fixed_16_16 t_max = std::min( std::min(t_max_x, t_max_y),  t_max_z );
 
         if (
                 (t_max < fpm::fixed_16_16{0}) ||  // AABB behind ray
                 (t_min > t_max)  // No hit
-        ) { hit_info.hit = false; return hit_info; }
+        ) { return false; }
 
-        hit_info.hit = true;
-        hit_info.distance = (t_min < fpm::fixed_16_16{0}) ? t_max : t_min;
-        hit_info.point = ray_origin + (ray_direction * hit_info.distance);
-        hit_info.normal = fpmlinalg::Vec3{0, 0, 0};
-        if (t_min_x == t_min || t_max_x == t_min) hit_info.normal.x = (ray_direction.x > fpm::fixed_16_16{0}) ? fpm::fixed_16_16{-1} : fpm::fixed_16_16{1};
-        else if (t_min_y == t_min || t_max_y == t_min) hit_info.normal.y = (ray_direction.y > fpm::fixed_16_16{0}) ? fpm::fixed_16_16{-1} : fpm::fixed_16_16{1};
-        else hit_info.normal.z = (ray_direction.z > fpm::fixed_16_16{0}) ? fpm::fixed_16_16{-1} : fpm::fixed_16_16{1};
+        if (OUT_extra_hit_info == nullptr) return true;
 
-        if (inside_box) { //ray_direction = -ray_direction;
-                hit_info.distance = -hit_info.distance;
-                hit_info.normal = -hit_info.normal;
-        }
-
-        return hit_info;
+        RayHitExtraInfo extra_hit_info{};
+        bool inside_box = (
+                (ray_origin.x > target.min.x && ray_origin.x < target.max.x) &&
+                (ray_origin.y > target.min.y && ray_origin.y < target.max.y) &&
+                (ray_origin.z > target.min.z && ray_origin.z < target.max.z)
+        );
+        fpm::fixed_16_16 hit_t = (inside_box ? t_max : t_min);  // If ray is inside box, then t_max (the other point on line (expressed as number representing distance along ray from ray_origin toward ray_direction (works even if not unit-length or normalized to unit-length))) is hit, else it's just t_min as usual
+        extra_hit_info.distance = hit_t * ray_direction.Length();  // Multiplied by length of ray_direction, in case ray_direction is not normalized, to scale to world scale
+        extra_hit_info.point = ray_origin + (ray_direction * hit_t);
+        extra_hit_info.normal = fpmlinalg::Vec3{0, 0, 0};  // Since target is an AABB (*Axis-Aligned* Bounding Box) one can just set the same axis on the normal vector as the hit side's axis (is perpendicular to the face of the hit side) to either -1 or 1, depending on if the ray direction on that axis is positive or negative respectively:
+        if ((inside_box ? t_max_x : t_min_x) == hit_t) extra_hit_info.normal.x = (ray_direction.x > fpm::fixed_16_16{0}) ? fpm::fixed_16_16{-1} : fpm::fixed_16_16{1};
+        else if ((inside_box ? t_max_y : t_min_y) == hit_t) extra_hit_info.normal.y = (ray_direction.y > fpm::fixed_16_16{0}) ? fpm::fixed_16_16{-1} : fpm::fixed_16_16{1};
+        else extra_hit_info.normal.z = (ray_direction.z > fpm::fixed_16_16{0}) ? fpm::fixed_16_16{-1} : fpm::fixed_16_16{1};
+        if (inside_box) extra_hit_info.normal = -extra_hit_info.normal;
+        *OUT_extra_hit_info = extra_hit_info;
+        return true;
 }
 }
