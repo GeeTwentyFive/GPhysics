@@ -43,23 +43,23 @@ class GPhysics { public: struct Box;
         uint16_t max_boxes;
         GPhysics(uint16_t max_boxes = 8192) : max_boxes(max_boxes) { boxes.reserve(max_boxes); };
 
-        struct Box {
+        typedef bool(*CollisionCallback)(Box* collidee);  // Return `false` to ignore collision
+        struct Box { void* user_data = nullptr; GPhysics* _physics_instance = nullptr;
                 gcollision::AABB aabb = gcollision::AABB{fpmlinalg::Vec3{0, 0, 0}, fpmlinalg::Vec3{0, 0, 0}};
-                void* user_data;
-                GPhysics* physics_instance = nullptr;
                 bool dynamic = false;
-                bool lock_x = false, lock_y = false, lock_z = false;
-                bool in_air = true;
                 fpmlinalg::Vec3 velocity = fpmlinalg::Vec3{0, 0, 0};
                 fpm::fixed_16_16 gravity = fpm::fixed_16_16::from_custom_fraction<100>(-9, 81);
                 fpm::fixed_16_16 friction = fpm::fixed_16_16{1};
                 fpm::fixed_16_16 bounciness = fpm::fixed_16_16{1}/fpm::fixed_16_16{8};
-                void ApplyForce(fpmlinalg::Vec3 f) { this->velocity += ((f / physics_instance->tickrate) / (1 + (velocity.Length() / physics_instance->tickrate))); };
-                void Remove() { for (auto it = this->physics_instance->boxes.begin(); it != this->physics_instance->boxes.end(); it++) { if (it->get() == this) {this->physics_instance->boxes.erase(it); return;} }; }
+                CollisionCallback collision_callback = nullptr;  // Is only called for `dynamic` boxes. Return `false` to ignore collision
+                void ApplyForce(fpmlinalg::Vec3 f) { this->velocity += ((f / _physics_instance->tickrate) / (1 + (velocity.Length() / _physics_instance->tickrate))); };
+                void Remove() { for (auto it = this->_physics_instance->boxes.begin(); it != this->_physics_instance->boxes.end(); it++) { if (it->get() == this) {this->_physics_instance->boxes.erase(it); return;} }; }
+
+                bool currently_colliding = false;  // Is only set for `dynamic` boxes
         };
         Box* AddBox(fpmlinalg::Vec3 size) { if (boxes.size() >= max_boxes) return nullptr;
                 auto box = std::make_unique<Box>();
-                box->physics_instance = this;
+                box->_physics_instance = this;
                 box->aabb.min = -(size/fpm::fixed_16_16{2});
                 box->aabb.max = size/fpm::fixed_16_16{2};
                 Box* ptr = box.get();
@@ -72,12 +72,12 @@ class GPhysics { public: struct Box;
 
                 if (!b.dynamic) continue;
 
-                if (b.in_air) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
+                if (!b.currently_colliding) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
                 else b.velocity *= 1-(b.friction/tickrate);
 
                 fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
-                b.in_air = true;
+                b.currently_colliding = false;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
                         Box& b2 = *boxes[j];
 
@@ -93,7 +93,8 @@ class GPhysics { public: struct Box;
                         if ((b2.aabb.GetCenterPos() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
 
                         if (b.aabb.Intersects(b2.aabb)) {
-                                b.in_air = false;
+                                b.currently_colliding = true;
+                                if (b.collision_callback != nullptr) {if (!b.collision_callback(&b2)) continue;}  // Call user's collision callback, ignore collision if user's callback returns `false`
 
                                 fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
                                 fpm::fixed_16_16 collision_depth = b.aabb.GetPenetrationDepth(b2.aabb);
