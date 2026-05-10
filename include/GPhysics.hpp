@@ -67,15 +67,25 @@ class GPhysics { public: struct Box;
                 return ptr;
         }
 
-        Box* CastRay(
+        Box* CastRay(  // Returns closest hit box (or NULL if none hit). Optionally also extra hit info
                 const fpmlinalg::Vec3& ray_origin,
                 const fpmlinalg::Vec3& ray_direction,
                 gcollision::RayHitExtraInfo* OUT_extra_hit_info = nullptr  // optional extra hit info
         ) {
-                // TODO
+                Box* closest_hit_box = nullptr;
+                gcollision::RayHitExtraInfo closest_hit_box_extra_hit_info{}; closest_hit_box_extra_hit_info.distance = std::numeric_limits<fpm::fixed_16_16>::max();
+                for (const std::unique_ptr<Box>& b : boxes) {
+                        gcollision::RayHitExtraInfo current_extra_hit_info; if (!gcollision::IntersectRayAABB(ray_origin, ray_direction, b->aabb, &current_extra_hit_info)) continue;
+                        if (current_extra_hit_info.distance < closest_hit_box_extra_hit_info.distance) {
+                                closest_hit_box = b.get();
+                                closest_hit_box_extra_hit_info = current_extra_hit_info;
+                        }
+                }
+                if (OUT_extra_hit_info != nullptr) *OUT_extra_hit_info = closest_hit_box_extra_hit_info;
+                return closest_hit_box;
         }
 
-        void Tick() { for (size_t i = 0; i < boxes.size(); i++) {
+        void Tick() { for (size_t i = 0; i < boxes.size(); i++) {  // Time complexity: O(n*n*n), where n = number of Boxes
                 Box& b = *boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;  // for dealing with near-zero rounding (fixed-point (and floats too) has limited decimal precision after all...)
 
                 if (!b.dynamic) continue;
