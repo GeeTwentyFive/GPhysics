@@ -1,0 +1,1 @@
+g++ -O2 -march=x86-64-v2 -I ../include _TEST.cpp -o _TEST.exe

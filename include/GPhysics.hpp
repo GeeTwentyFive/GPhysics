@@ -81,12 +81,12 @@ class GPhysics { public: struct Box;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
                         Box& b2 = *boxes[j];
 
-                        // center-raycast Continuous Collision Detection
-                        if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
-                                b.aabb.GetCenterPos(),
-                                (new_position - b.aabb.GetCenterPos()),
-                                b2.aabb
-                        ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal*epsilon); }
+                        // // center-raycast Continuous Collision Detection  // TODO: FIX: Limit range? Or implement whole-world return-just-nearest raycast and use that later on (after loop)?
+                        // if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
+                        //         b.aabb.GetCenterPos(),
+                        //         (new_position - b.aabb.GetCenterPos()),
+                        //         b2.aabb
+                        // ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal*epsilon); }
 
                         // if (distance between box 1 and box 2) > (box 1 size + box 2 size): skip
                         // ^ aka.: If they're too far for collisions to even be possible
