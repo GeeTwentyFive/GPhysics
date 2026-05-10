@@ -67,6 +67,14 @@ class GPhysics { public: struct Box;
                 return ptr;
         }
 
+        Box* CastRay(
+                const fpmlinalg::Vec3& ray_origin,
+                const fpmlinalg::Vec3& ray_direction,
+                gcollision::RayHitInfo* OUT_hit_info
+        ) {
+                // TODO
+        }
+
         void Tick() { for (size_t i = 0; i < boxes.size(); i++) {
                 Box& b = *boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;  // for dealing with near-zero rounding (fixed-point (and floats too) has limited decimal precision after all...)
 
@@ -91,7 +99,7 @@ class GPhysics { public: struct Box;
                         // ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal*epsilon); }
 
                         // if (distance between box 1 and box 2) > (box 1 size + box 2 size): skip
-                        // ^ aka.: If they're too far for collisions to even be possible
+                        // ^ aka.: if they're too far for collisions to even be possible: skip
                         if ((b2.aabb.GetCenterPos() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
 
                         if (b.aabb.Intersects(b2.aabb)) {
