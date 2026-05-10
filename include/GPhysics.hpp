@@ -68,14 +68,14 @@ class GPhysics { public: struct Box;
         }
 
         void Tick() { for (size_t i = 0; i < boxes.size(); i++) {
-                Box& b = *boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;
+                Box& b = *boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;  // for dealing with near-zero rounding (fixed-point (and floats too) has limited decimal precision after all...)
 
                 if (!b.dynamic) continue;
 
                 if (!b.currently_colliding) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
                 else b.velocity *= 1-(b.friction/tickrate);
 
-                if (b.velocity.LengthSquared() < epsilon) continue;  // Don't move nor collide if future speed (aka. velocity) is miniscule (to prevent shakyness/jitter)
+                if (b.velocity.LengthSquared() < epsilon) continue;  // Don't move nor collide if future speed (aka. velocity) is miniscule (to prevent shakyness/jitter) (minimum speed = sqrt(epsilon))
 
                 fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
@@ -83,7 +83,7 @@ class GPhysics { public: struct Box;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
                         Box& b2 = *boxes[j];
 
-                        // // center-raycast Continuous Collision Detection  // TODO: FIX: Limit range? Or implement whole-world return-just-nearest raycast and use that later on (after loop)?
+                        // // center-raycast Continuous Collision Detection  // TODO: FIX: Implement whole-world return-just-nearest CastRay() and use that here instead
                         // if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
                         //         b.aabb.GetCenterPos(),
                         //         (new_position - b.aabb.GetCenterPos()),
