@@ -57,7 +57,7 @@ class GPhysics { public: struct Box;
 
                 bool currently_colliding = false;  // Is only set for `dynamic` boxes
         };
-        Box* AddBox(fpmlinalg::Vec3 size) { if (boxes.size() >= max_boxes) return nullptr;
+        Box* AddBox(fpmlinalg::Vec3 size) { if (boxes.size() >= max_boxes) return nullptr; if (size.x < (fpm::fixed_16_16{1}/tickrate) || size.y < (fpm::fixed_16_16{1}/tickrate) || size.z < (fpm::fixed_16_16{1}/tickrate)) return nullptr;
                 auto box = std::make_unique<Box>();
                 box->_physics_instance = this;
                 box->aabb.min = -(size/fpm::fixed_16_16{2});
@@ -97,16 +97,15 @@ class GPhysics { public: struct Box;
 
                 fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
+                gcollision::RayHitExtraInfo extra_hit_info;
+                if (  // Center-only raycast Continuous Collision Detection
+                        CastRay(b.aabb.GetCenterPos(), (new_position - b.aabb.GetCenterPos()), &extra_hit_info) != nullptr
+                        && (extra_hit_info.distance*extra_hit_info.distance) < (new_position - b.aabb.GetCenterPos()).LengthSquared()
+                ) new_position = extra_hit_info.point + (extra_hit_info.normal*epsilon);  // Makes sure that this box doesn't clip through other box; sets its new position such that the following code will handle the rest correctly
+
                 b.currently_colliding = false;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
                         Box& b2 = *boxes[j];
-
-                        // // center-raycast Continuous Collision Detection  // TODO: FIX: Implement whole-world return-just-nearest CastRay() and use that here instead
-                        // if ((new_position - b.aabb.GetCenterPos()).LengthSquared() > fpm::fixed_16_16{0}) { gcollision::RayHitInfo hit_info = gcollision::IntersectRayAABB(
-                        //         b.aabb.GetCenterPos(),
-                        //         (new_position - b.aabb.GetCenterPos()),
-                        //         b2.aabb
-                        // ); if (hit_info.hit) new_position = hit_info.point + (hit_info.normal*epsilon); }
 
                         // if (distance between box 1 and box 2) > (box 1 size + box 2 size): skip
                         // ^ aka.: if they're too far for collisions to even be possible: skip
