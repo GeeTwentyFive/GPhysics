@@ -75,6 +75,8 @@ class GPhysics { public: struct Box;
                 if (!b.currently_colliding) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
                 else b.velocity *= 1-(b.friction/tickrate);
 
+                if (b.velocity.LengthSquared() < epsilon) continue;  // Don't move nor collide if future speed (aka. velocity) is miniscule (to prevent shakyness/jitter)
+
                 fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
                 b.currently_colliding = false;
