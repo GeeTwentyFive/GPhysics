@@ -86,7 +86,7 @@ class GPhysics { public: struct Box;
                 return closest_hit_box;
         }
 
-        void Tick() { for (size_t i = 0; i < boxes.size(); i++) {  // Time complexity: O(n*n*n), where n = number of Boxes
+        void Tick() { for (size_t i = 0; i < boxes.size(); i++) {
                 Box& b = *boxes[i]; fpm::fixed_16_16 epsilon = fpm::fixed_16_16{1}/tickrate;  // for dealing with near-zero rounding (fixed-point (and floats too) has limited decimal precision after all...)
 
                 if (!b.dynamic) continue;
@@ -94,7 +94,7 @@ class GPhysics { public: struct Box;
                 if (!b.currently_colliding) b.ApplyForce(fpmlinalg::Vec3{fpm::fixed_16_16{0}, b.gravity, fpm::fixed_16_16{0}});
                 else b.velocity *= 1-(b.friction/tickrate);
 
-                if (b.velocity.LengthSquared() < epsilon) continue;  // Don't move nor collide if future speed (aka. velocity) is miniscule (to prevent shakyness/jitter) (minimum speed = sqrt(epsilon))
+                if (b.velocity.LengthSquared() < epsilon) continue;  // Don't move nor collide if future speed (aka. velocity) is miniscule (to prevent shakyness/jitter)
 
                 fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
@@ -121,14 +121,15 @@ class GPhysics { public: struct Box;
                                 fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
                                 fpm::fixed_16_16 collision_depth = b.aabb.GetPenetrationDepth(b2.aabb);
 
-                                fpmlinalg::Vec3 pos_correction = collision_normal;
-                                if (b2.dynamic) pos_correction *= (collision_depth+epsilon)/2;
-                                else pos_correction *= collision_depth+epsilon;
-                                new_position += pos_correction;
+                                new_position += collision_normal * (collision_depth+epsilon);  // Move box out of insides of other box
 
-                                // TODO: Give some velocity to other box (dot product collision normal)
-
-                                b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;
+                                if (!b2.dynamic) b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;  // If other box isn't dynamic: bounce off!
+                                else {  // If other box is also dynamic: transfer some velocity relative to angle of collision, and bounce!
+                                        fpmlinalg::Vec3 b_velocity_change = (b.velocity.Reflect(collision_normal) * b.bounciness) + (b2.velocity * (fpm::fixed_16_16{1} - b2.bounciness));
+                                        fpmlinalg::Vec3 b2_velocity_change = (b2.velocity.Reflect(-collision_normal) * b2.bounciness) + (b.velocity * (fpm::fixed_16_16{1} - b.bounciness));
+                                        b.velocity = b_velocity_change;
+                                        b2.velocity = b2_velocity_change;
+                                }
                         }
                 }
 
