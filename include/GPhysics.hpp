@@ -104,7 +104,7 @@ class GPhysics { public: struct Box;
 
                 if ((new_position - b.aabb.GetCenterPos()).LengthSquared() >= smallest_half_extent*smallest_half_extent) {  // If future displacement is greater than smallest half extent: Do Continuous Collision Detection
                         gcollision::RayHitExtraInfo extra_hit_info;
-                        if (CastRay(  // Center-only raycast Continuous Collision Detection: Makes sure that this box doesn't clip through other box; sets its new position such that the following code will handle the rest correctly
+                        if (CastRay(  // Center-only raycast Continuous Collision Detection: Makes sure that this box doesn't clip through other box; sets its new position such that the following code (the collision solver) will handle the rest correctly
                                 b.aabb.GetCenterPos(),
                                 (new_position - b.aabb.GetCenterPos()),
                                 &extra_hit_info,
@@ -117,30 +117,28 @@ class GPhysics { public: struct Box;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
                         Box& b2 = *boxes[j];
 
-                        //if ((j < i) && b2.dynamic) continue;  // Skip already-solved dynamic<->dynamic pairs  // (makes stuff go brokey)
+                        if (!b.aabb.Intersects(b2.aabb)) continue;
+                        if (b.collision_callback != nullptr) {if (!b.collision_callback(&b2)) continue;}  // Call user's collision callback, ignore collision if user's callback returns `false`
 
-                        if (b.aabb.Intersects(b2.aabb)) {
-                                if (b.collision_callback != nullptr) {if (!b.collision_callback(&b2)) continue;}  // Call user's collision callback, ignore collision if user's callback returns `false`
+                        b.currently_colliding = true;
 
-                                b.currently_colliding = true;
-
-                                fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
-                                fpmlinalg::Vec3 pos_correction = collision_normal * (b.aabb.GetPenetrationDepth(b2.aabb)+epsilon);  // For separating the intersecting boxes
-                                if (!b2.dynamic) {  // If other box isn't dynamic: bounce off!
-                                        new_position += pos_correction;
-                                        if (b.velocity.Dot(collision_normal) > fpm::fixed_16_16{0}) continue;  // If already moving away from collidee: skip further collision solving
-                                        b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;
-                                }
-                                else {  // If other box is also dynamic: transfer some velocity relative to angle of collision, and bounce!
-                                        new_position += pos_correction/fpm::fixed_16_16{2};
-                                        b2.aabb.SetCenterPos(b2.aabb.GetCenterPos() - pos_correction/fpm::fixed_16_16{2});
-                                        fpmlinalg::Vec3 velocity_diff = b.velocity - b2.velocity;
-                                        if (velocity_diff.Dot(collision_normal) > fpm::fixed_16_16{0}) continue;  // If collidee is already moving away from box faster than box itself: skip further collision solving
-                                        fpmlinalg::Vec3 velocity_change = velocity_diff.Reflect(collision_normal) * std::min(b.bounciness, b2.bounciness);
-                                        fpmlinalg::Vec3 average_of_velocities = (b.velocity + b2.velocity) / fpm::fixed_16_16{2};
-                                        b.velocity = average_of_velocities + (velocity_change/fpm::fixed_16_16{2});
-                                        b2.velocity = average_of_velocities - (velocity_change/fpm::fixed_16_16{2});
-                                }
+                        // Collision solver:
+                        fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
+                        fpmlinalg::Vec3 pos_correction = collision_normal * (b.aabb.GetPenetrationDepth(b2.aabb)+epsilon);  // For separating the intersecting boxes
+                        if (!b2.dynamic) {  // If other box isn't dynamic: bounce off!
+                                new_position += pos_correction;
+                                if (b.velocity.Dot(collision_normal) > fpm::fixed_16_16{0}) continue;  // If already moving away from collidee: skip further collision solving
+                                b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;
+                        }
+                        else {  // If other box is also dynamic: transfer some velocity relative to angle of collision, and bounce!
+                                new_position += pos_correction/fpm::fixed_16_16{2};
+                                b2.aabb.SetCenterPos(b2.aabb.GetCenterPos() - pos_correction/fpm::fixed_16_16{2});
+                                fpmlinalg::Vec3 velocity_diff = b.velocity - b2.velocity;
+                                if (velocity_diff.Dot(collision_normal) > fpm::fixed_16_16{0}) continue;  // If collidee is already moving away from box faster than box itself: skip further collision solving
+                                fpmlinalg::Vec3 velocity_change = velocity_diff.Reflect(collision_normal) * std::min(b.bounciness, b2.bounciness);
+                                fpmlinalg::Vec3 average_of_velocities = (b.velocity + b2.velocity) / fpm::fixed_16_16{2};
+                                b.velocity = average_of_velocities + (velocity_change/fpm::fixed_16_16{2});
+                                b2.velocity = average_of_velocities - (velocity_change/fpm::fixed_16_16{2});
                         }
                 }
 
