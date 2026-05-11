@@ -122,15 +122,18 @@ class GPhysics { public: struct Box;
                                 fpmlinalg::Vec3 pos_correction = collision_normal * (b.aabb.GetPenetrationDepth(b2.aabb)+epsilon);  // For separating the intersecting boxes
                                 if (!b2.dynamic) {  // If other box isn't dynamic: bounce off!
                                         new_position += pos_correction;
+                                        if (b.velocity.Dot(collision_normal) > fpm::fixed_16_16{0}) continue;  // If already moving away from collidee: skip further collision solving
                                         b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;
                                 }
                                 else {  // If other box is also dynamic: transfer some velocity relative to angle of collision, and bounce!
                                         new_position += pos_correction/fpm::fixed_16_16{2};
                                         b2.aabb.SetCenterPos(b2.aabb.GetCenterPos() - pos_correction/fpm::fixed_16_16{2});
-                                        fpmlinalg::Vec3 b_velocity_change = (b.velocity.Reflect(collision_normal) * b.bounciness) + (b2.velocity * (fpm::fixed_16_16{1} - b2.bounciness));
-                                        fpmlinalg::Vec3 b2_velocity_change = (b2.velocity.Reflect(-collision_normal) * b2.bounciness) + (b.velocity * (fpm::fixed_16_16{1} - b.bounciness));
-                                        b.velocity = b_velocity_change;
-                                        b2.velocity = b2_velocity_change;
+                                        fpmlinalg::Vec3 velocity_diff = b.velocity - b2.velocity;
+                                        if (velocity_diff.Dot(collision_normal) > fpm::fixed_16_16{0}) continue;  // If collidee is already moving away from box faster than box itself: skip further collision solving
+                                        fpmlinalg::Vec3 velocity_change = velocity_diff.Reflect(collision_normal) * std::min(b.bounciness, b2.bounciness);
+                                        fpmlinalg::Vec3 average_of_velocities = (b.velocity + b2.velocity) / fpm::fixed_16_16{2};
+                                        b.velocity = average_of_velocities + (velocity_change/fpm::fixed_16_16{2});
+                                        b2.velocity = average_of_velocities - (velocity_change/fpm::fixed_16_16{2});
                                 }
                         }
                 }
