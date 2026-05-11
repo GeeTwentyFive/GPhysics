@@ -71,11 +71,12 @@ class GPhysics { public: struct Box;
                 const fpmlinalg::Vec3& ray_origin,
                 const fpmlinalg::Vec3& ray_direction,
                 gcollision::RayHitExtraInfo* OUT_extra_hit_info = nullptr,  // optional extra hit info
-                fpm::fixed_16_16 max_distance = std::numeric_limits<fpm::fixed_16_16>::max()
+                fpm::fixed_16_16 max_distance = std::numeric_limits<fpm::fixed_16_16>::max(),
+                std::vector<Box*> ignore_boxes = {}
         ) {
                 Box* closest_hit_box = nullptr;
                 gcollision::RayHitExtraInfo closest_hit_box_extra_hit_info{}; closest_hit_box_extra_hit_info.distance = std::numeric_limits<fpm::fixed_16_16>::max();
-                for (const std::unique_ptr<Box>& b : boxes) { if (((b->aabb.GetCenterPos() + b->aabb.GetHalfExtent()) - ray_origin).Length() > max_distance) continue;
+                for (const std::unique_ptr<Box>& b : boxes) { for (const Box* ignore_box : ignore_boxes) if (b.get() == ignore_box) continue; if (((b->aabb.GetCenterPos() + b->aabb.GetHalfExtent()) - ray_origin).Length() > max_distance) continue;
                         gcollision::RayHitExtraInfo current_extra_hit_info; if (!gcollision::IntersectRayAABB(ray_origin, ray_direction, b->aabb, &current_extra_hit_info)) continue;
                         if (current_extra_hit_info.distance < closest_hit_box_extra_hit_info.distance) {
                                 closest_hit_box = b.get();
@@ -103,20 +104,25 @@ class GPhysics { public: struct Box;
 
                 if ((new_position - b.aabb.GetCenterPos()).LengthSquared() >= smallest_half_extent*smallest_half_extent) {  // If future displacement is greater than smallest half extent: Do Continuous Collision Detection
                         gcollision::RayHitExtraInfo extra_hit_info;
-                        if (CastRay(b.aabb.GetCenterPos(), (new_position - b.aabb.GetCenterPos()), &extra_hit_info, (new_position - b.aabb.GetCenterPos()).Length()) != nullptr) new_position = extra_hit_info.point + (extra_hit_info.normal*epsilon);  // Center-only raycast Continuous Collision Detection: Makes sure that this box doesn't clip through other box; sets its new position such that the following code will handle the rest correctly
+                        if (CastRay(  // Center-only raycast Continuous Collision Detection: Makes sure that this box doesn't clip through other box; sets its new position such that the following code will handle the rest correctly
+                                b.aabb.GetCenterPos(),
+                                (new_position - b.aabb.GetCenterPos()),
+                                &extra_hit_info,
+                                (new_position - b.aabb.GetCenterPos()).Length(),
+                                {&b}
+                        ) != nullptr) new_position = extra_hit_info.point + (extra_hit_info.normal*epsilon);
                 }
 
                 b.currently_colliding = false;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
                         Box& b2 = *boxes[j];
 
-                        // if (distance between box 1 and box 2) > (box 1 size + box 2 size): skip
-                        // ^ aka.: if they're too far for collisions to even be possible: skip
-                        if ((b2.aabb.GetCenterPos() - new_position).LengthSquared() > (b.aabb.GetSize() + b2.aabb.GetSize()).LengthSquared()) continue;
+                        //if ((j < i) && b2.dynamic) continue;  // Skip already-solved dynamic<->dynamic pairs  // (makes stuff go brokey)
 
                         if (b.aabb.Intersects(b2.aabb)) {
-                                b.currently_colliding = true;
                                 if (b.collision_callback != nullptr) {if (!b.collision_callback(&b2)) continue;}  // Call user's collision callback, ignore collision if user's callback returns `false`
+
+                                b.currently_colliding = true;
 
                                 fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
                                 fpmlinalg::Vec3 pos_correction = collision_normal * (b.aabb.GetPenetrationDepth(b2.aabb)+epsilon);  // For separating the intersecting boxes
