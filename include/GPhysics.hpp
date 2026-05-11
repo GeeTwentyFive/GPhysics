@@ -119,12 +119,14 @@ class GPhysics { public: struct Box;
                                 if (b.collision_callback != nullptr) {if (!b.collision_callback(&b2)) continue;}  // Call user's collision callback, ignore collision if user's callback returns `false`
 
                                 fpmlinalg::Vec3 collision_normal = b.aabb.GetCollisionNormal(b2.aabb);
-                                fpm::fixed_16_16 collision_depth = b.aabb.GetPenetrationDepth(b2.aabb);
-
-                                new_position += collision_normal * (collision_depth+epsilon);  // Move box out of insides of other box
-
-                                if (!b2.dynamic) b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;  // If other box isn't dynamic: bounce off!
+                                fpmlinalg::Vec3 pos_correction = collision_normal * (b.aabb.GetPenetrationDepth(b2.aabb)+epsilon);  // For separating the intersecting boxes
+                                if (!b2.dynamic) {  // If other box isn't dynamic: bounce off!
+                                        new_position += pos_correction;
+                                        b.velocity = b.velocity.Reflect(collision_normal) * b.bounciness;
+                                }
                                 else {  // If other box is also dynamic: transfer some velocity relative to angle of collision, and bounce!
+                                        new_position += pos_correction/fpm::fixed_16_16{2};
+                                        b2.aabb.SetCenterPos(b2.aabb.GetCenterPos() - pos_correction/fpm::fixed_16_16{2});
                                         fpmlinalg::Vec3 b_velocity_change = (b.velocity.Reflect(collision_normal) * b.bounciness) + (b2.velocity * (fpm::fixed_16_16{1} - b2.bounciness));
                                         fpmlinalg::Vec3 b2_velocity_change = (b2.velocity.Reflect(-collision_normal) * b2.bounciness) + (b.velocity * (fpm::fixed_16_16{1} - b.bounciness));
                                         b.velocity = b_velocity_change;
