@@ -98,8 +98,13 @@ class GPhysics { public: struct Box;
 
                 fpmlinalg::Vec3 new_position = b.aabb.GetCenterPos() + b.velocity/tickrate;
 
-                gcollision::RayHitExtraInfo extra_hit_info;
-                if (CastRay(b.aabb.GetCenterPos(), (new_position - b.aabb.GetCenterPos()), &extra_hit_info, (new_position - b.aabb.GetCenterPos()).Length()) != nullptr) new_position = extra_hit_info.point + (extra_hit_info.normal*epsilon);  // Center-only raycast Continuous Collision Detection: Makes sure that this box doesn't clip through other box; sets its new position such that the following code will handle the rest correctly
+                fpmlinalg::Vec3 half_extent = b.aabb.GetHalfExtent();
+                fpm::fixed_16_16 smallest_half_extent = std::min(std::min(half_extent.x, half_extent.y), half_extent.z);
+
+                if ((new_position - b.aabb.GetCenterPos()).LengthSquared() >= smallest_half_extent*smallest_half_extent) {  // If future displacement is greater than smallest half extent: Do Continuous Collision Detection
+                        gcollision::RayHitExtraInfo extra_hit_info;
+                        if (CastRay(b.aabb.GetCenterPos(), (new_position - b.aabb.GetCenterPos()), &extra_hit_info, (new_position - b.aabb.GetCenterPos()).Length()) != nullptr) new_position = extra_hit_info.point + (extra_hit_info.normal*epsilon);  // Center-only raycast Continuous Collision Detection: Makes sure that this box doesn't clip through other box; sets its new position such that the following code will handle the rest correctly
+                }
 
                 b.currently_colliding = false;
                 for (size_t j = 0; j < boxes.size(); j++) { if (j == i) continue;
