@@ -111,7 +111,7 @@ class GPhysics { public: struct Box;
                                 &extra_hit_info,
                                 (new_position - b.aabb.GetCenterPos()).Length(),
                                 {&b}
-                        ) != nullptr) new_position = extra_hit_info.point - (extra_hit_info.normal*epsilon);
+                        ) != nullptr) new_position = extra_hit_info.point + ((-extra_hit_info.normal)*epsilon);
                 }
 
                 // Discrete Collision Detection & resolution:
